@@ -4,65 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Hermes Voice — fork] - 2026-11-01
+
+### Added
+
+- Phase 0a (audit de la base) : `STATUS.md`, `NEXT_STEPS.md`, `DECISIONS.md` (D1-D5), `docs/HERMES_API_SPEC.md` (endpoints 192.168.2.142 réellement testés : 9119/8767/8642), `scripts/build.sh`, `scripts/test.sh`, `scripts/check.sh`, `scripts/adb-test.sh`.
+- Règle licence (DECISIONS D1) : base hermes-relay = MIT confirmée ; aucun code Gotcha (AGPL-3.0) ; le wake word sera réimplémenté via openWakeWord (Apache-2.0) + modèle ONNX entraîné par nous, chargé depuis `assets/wakewords/`.
+- `scripts/check.sh` : le code de sortie reflète désormais le statut réel (VERT/ROUGE) au lieu de sortir toujours 0.
+
 ## [Unreleased]
 
-## [Android 1.19.0] - 2026-10-20
-
 ### Added
 
-- Unread markers in the session drawer and counts on profiles and the chat header make background completions easier to find.
-- Built-in English tool updates can be muted independently of assistant readback on Standard and Relay voice output.
-
-### Changed
-
-- Reply alerts show the owning agent display name, cached avatar, and conversation title.
-- Relay session controls distinguish shortening from operator-approved renewal, retain actionable update failures, and make duration controls accessible.
-- Settings distinguish phone interruption from host barge-in and explain that Hold mode can still listen for spoken interruption. Saved choices and defaults remain unchanged.
+- CLI+UI imports full pairing invites from the Dashboard, preserving route candidates and Secure Link certificate trust.
+- Android marks unread completed conversations in the session drawer and shows unread conversation counts on profiles and the chat header.
+- Reply notifications show the owning agent's official profile name and cached avatar, plus the conversation title.
 
 ### Fixed
 
-- Long tools and provider waits stay active. Missing completion events recover from server state, including work started by another client, without sending Stop.
-- Oversized history responses retry with smaller pages while keeping the latest 500 messages in order. Individual messages above the safety limit show an explicit error.
-- Reopening a conversation includes messages archived by context compaction instead of showing only its summary and recent tail.
-- Gateway responses avoid duplicate history transfers. After a recorded out-of-memory crash, automatic reopening pauses while saved conversations and drafts remain intact.
-- Temporary reverse-proxy access failures preserve the native Dashboard session and allow a later refresh when the route is reachable again.
-- Notification permission defaults refresh after onboarding, and background alerts retain their original connection, profile, and conversation across navigation.
-- Replies from different running conversations have separate notification slots. Opening one preserves alerts from the others.
-- Chat progress remains above the current composer and clears when the turn finishes or waits for input.
-- Both wake-word modes pause before voice capture and resume after voice exits, preventing microphone conflicts.
-- Assistant activation waits for microphone startup to finish instead of reporting activation before capture is ready.
-- Profile state arriving during connection setup no longer races initialization.
-- The selected palette stays applied after the startup loading screen instead of leaving parts of the interface dark.
-- Streaming playback retains whole sentences and short replies after tool-call gaps, and drains delivered audio before ending speech.
-- Voice waits for the last synthesized audio file to finish before reopening the microphone in Continuous mode, and settles failed playback.
-- Final answer only speech no longer disappears during a chat-state race.
-- The packaged voice runtime remains aligned with the speech engine native libraries.
+- Android Relay sessions distinguish shortening from operator-approved renewal, retain actionable update failures, and expose accessible pairing duration controls. (#659)
 
-## [Plugin 1.13.1] - 2026-10-20
+- Android avoids a startup crash when profile state arrives during connection setup.
+- Android refreshes background-alert permission defaults after onboarding and keeps notification delivery tied to the original connection, profile, and conversation across navigation.
+- Replies from conversations left running get separate notification slots; opening one conversation preserves alerts from others.
+- Chat progress stays above the composer while scrolling and disappears when the turn finishes or waits for input.
 
-### Fixed
-
-- Use the selected speech renderer's model and voice defaults when a profile changes provider, while preserving explicit selections.
-- Accept Secure Link PEM certificate chains, export only the leaf certificate for pairing, and report invalid certificate/key configurations without exposing private file paths.
-- Support paired-device listing, session shortening, and revocation over Secure Link with the existing Relay authorization rules.
-- Route desktop operations addressed with device_id only to the exact authenticated device. Missing, duplicate, or conflicting targets fail without name matching or fallback to another computer.
-
-## [0.4.0-beta.10] - 2026-10-08
-
-### Fixed
-
-- Structured CUA clicks, value changes, and scrolling accept current driver handles, including hexadecimal snapshot generations. (#680)
-- Windows Activity identifies CUA snapshots and system captures correctly and avoids assuming a backend or dispatch mode when neither was recorded. (#682)
-
-## [0.4.0-beta.9] - 2026-10-07
-
-### Added
-
-- The Windows management UI imports full Dashboard pairing invites through a native Paste invite control, preserving route candidates and Secure Link certificate trust.
-
-### Changed
-
-- CLI pairing displays advertised routes with protocols and ports and gives actionable direct-route guidance when Dashboard authentication is unsupported.
+- Android keeps user-started Dashboard browser sign-in connected through its callback and session verification, then ends the foreground service. Callback pages identify the selected sign-in provider.
 
 ## [Plugin 1.13.0] - 2026-10-07
 
