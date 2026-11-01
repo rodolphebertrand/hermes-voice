@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 
 /** One reader's resources; stop unblocks read, close runs after read returns. */
 internal interface WakeWordAudio : AutoCloseable {
-    suspend fun detect(onListening: () -> Unit, onSamples: (ShortArray, Int) -> Unit): Boolean
+    suspend fun detect(onListening: () -> Unit, onSamples: (ShortArray, Int) -> Unit): WakeDetection?
     fun stop()
 }
 
@@ -46,7 +46,7 @@ internal class WakeWordRecognition(
         createAudio: () -> WakeWordAudio,
         onListening: () -> Unit,
         onSamples: (ShortArray, Int) -> Unit = { _, _ -> },
-        onDetected: () -> Unit,
+        onDetected: (WakeDetection?) -> Unit,
         onBusy: () -> Unit,
         onError: (Throwable) -> Unit,
     ) {
@@ -62,7 +62,7 @@ internal class WakeWordRecognition(
             }
             readerJob = currentCoroutineContext().job
             var reader: WakeWordAudio? = null
-            val detected = try {
+            val detected: WakeDetection? = try {
                 val owned = createAudio()
                 reader = owned
                 audio = owned
@@ -80,7 +80,7 @@ internal class WakeWordRecognition(
                 throw cancelled
             } catch (failure: Throwable) {
                 if (generation == expected && canListen()) onError(failure)
-                false
+                null
             } finally {
                 withContext(NonCancellable + readerDispatcher) {
                     try { reader?.close() } finally {
@@ -89,7 +89,7 @@ internal class WakeWordRecognition(
                 }
                 if (audio === reader) audio = null
             }
-            if (generation == expected && canListen() && detected) onDetected()
+            if (generation == expected && canListen() && detected != null) onDetected(detected)
         }
         job = next
         next.start()

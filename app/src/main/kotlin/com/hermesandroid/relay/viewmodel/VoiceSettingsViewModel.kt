@@ -15,6 +15,8 @@ import com.hermesandroid.relay.network.relay.VoiceConfig
 import com.hermesandroid.relay.network.relay.VoiceOutputConfig
 import com.hermesandroid.relay.util.HumanError
 import com.hermesandroid.relay.util.classifyError
+import com.hermesandroid.relay.wake.WakeWordAssetRegistry
+import com.hermesandroid.relay.wake.WakeWordEntryUi
 import com.hermesandroid.relay.wake.WakeWordForegroundService
 import com.hermesandroid.relay.wake.WakeWordModelInstaller
 import com.hermesandroid.relay.wake.WakeWordPreferences
@@ -91,11 +93,12 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
 
     init {
         viewModelScope.launch {
+            refreshWakeWordEntries()
             val preferences = wakeWordRepo.flow.first()
             if (preferences.enabled &&
                 WakeWordForegroundService.runtimeState.value ==
                 WakeWordRuntimeState.Stopped &&
-                WakeWordModelInstaller(application).installedFiles() != null
+                WakeWordAssetRegistry.isReady(application)
             ) {
                 // Entering the visible Voice settings screen is a permitted
                 // foreground restart after package replacement/process death.
@@ -128,6 +131,22 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
     private val _wakeWordInstallState = MutableStateFlow(WakeWordInstallUiState())
     val wakeWordInstallState: StateFlow<WakeWordInstallUiState> =
         _wakeWordInstallState.asStateFlow()
+
+    /** Wake words assets (wakewords.json) avec leur état effectif — pour l'UI. */
+    private val _wakeWordEntries = MutableStateFlow<List<WakeWordEntryUi>>(emptyList())
+    val wakeWordEntries: StateFlow<List<WakeWordEntryUi>> = _wakeWordEntries.asStateFlow()
+
+    private suspend fun refreshWakeWordEntries() {
+        _wakeWordEntries.value = WakeWordAssetRegistry.entries(getApplication())
+    }
+
+    fun setWakeWordEntryEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch {
+            WakeWordAssetRegistry.setEntryEnabled(getApplication(), id, enabled)
+            refreshWakeWordEntries()
+            WakeWordForegroundService.reloadSettings()
+        }
+    }
 
     /**
      * One-shot probe of [AcousticEchoCanceler.isAvailable] captured at VM
@@ -193,8 +212,12 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
         if (_wakeWordInstallState.value.installing) return
         _wakeWordInstallState.value = WakeWordInstallUiState(installing = true)
         viewModelScope.launch {
-            val result = WakeWordModelInstaller(getApplication()).ensureInstalled()
-            result.fold(
+            // Assets ONNX embarqués copiés vers filesDir au 1er démarrage ;
+            // fallback : téléchargement sherpa si le build n'embarque pas d'assets.
+            val kind = runCatching {
+                WakeWordAssetRegistry.ensureWakeWordReady(getApplication())
+            }
+            kind.fold(
                 onSuccess = {
                     runCatching {
                         wakeWordRepo.setEnabled(true)
@@ -211,7 +234,7 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
                 onFailure = { error ->
                     wakeWordRepo.setEnabled(false)
                     _wakeWordInstallState.value = WakeWordInstallUiState(
-                        error = error.message ?: "Could not install the wake-word model",
+                        error = error.message ?: "Could not prepare the wake-word model",
                     )
                 },
             )

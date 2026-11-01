@@ -172,26 +172,26 @@ class WakeWordForegroundService : Service() {
             fail("Microphone permission is required")
             return
         }
-        val files = WakeWordModelInstaller(this).installedFiles()
-        if (files == null) {
-            fail("Wake-word model is not installed")
+        // Phase 0b : primaire = assets openWakeWord ONNX ; fallback = sherpa (WakeTriggerFactory).
+        if (!WakeWordAssetRegistry.isReady(this)) {
+            fail("Aucun modèle de wake word disponible (assets absents et sherpa non installé)")
             return
         }
         recognition.start(
             canListen = ::canListen,
-            createAudio = { WakeWordAudioRecord(files, preferences) },
+            createAudio = { WakeWordAudioRecord(this, preferences) },
             onListening = { setRuntimeState(WakeWordRuntimeState.Listening) },
             onSamples = { samples, count ->
                 if (_testState.value.phase == WakeWordTestPhase.Listening) {
                     _testState.value = _testState.value.copy(inputLevel = wakeWordInputLevel(samples, count))
                 }
             },
-            onDetected = {
+            onDetected = { detection ->
                 if (_testState.value.phase == WakeWordTestPhase.Listening) {
                     finishWakeWordTest(WakeWordTestPhase.Detected)
                     startRecognition(currentPreferences)
                 } else {
-                    onWakeDetected(preferences)
+                    onWakeDetected(preferences, detection)
                 }
             },
             onBusy = { setRuntimeState(WakeWordRuntimeState.PausedForVoice) },
@@ -245,13 +245,22 @@ class WakeWordForegroundService : Service() {
         recognition.stop()
     }
 
-    private fun onWakeDetected(preferences: WakeWordPreferences) {
+    private fun onWakeDetected(preferences: WakeWordPreferences, detection: WakeDetection?) {
         // The reader and its lease have been released before this callback.
-        Log.i(TAG, "wake phrase detected; microphone released before activation")
+        Log.i(TAG, "wake phrase detected (${detection?.phrase}); microphone released before activation")
+        // Phase 0b : la détection porte un profil cible (wakewords.json) ;
+        // null / vide / "default" → routage des préférences ; sinon profil spécifique.
+        val routing = when (val profile = detection?.targetProfile) {
+            null, "", WakeWordAssetRegistry.DEFAULT_PROFILE -> preferences.profileRouting
+            else -> WakeWordProfileRouting(
+                mode = WakeWordProfileRouteMode.Specific,
+                profileName = profile,
+            )
+        }
         WakeWordActivationCoordinator.request(
             WakeWordActivation(
                 startNewSession = preferences.startNewSession,
-                profileRouting = preferences.profileRouting,
+                profileRouting = routing,
             )
         )
         setRuntimeState(WakeWordRuntimeState.AwaitingUser)

@@ -25,11 +25,13 @@ class WakeWordRecognitionTest {
         var stopped = false
         var closed = false
         var listening: (() -> Unit)? = null
-        override suspend fun detect(onListening: () -> Unit, onSamples: (ShortArray, Int) -> Unit): Boolean {
+        override suspend fun detect(onListening: () -> Unit, onSamples: (ShortArray, Int) -> Unit): WakeDetection? {
             listening = onListening
             onListening()
             // Model native read/accept returning after cancellation was requested.
-            return withContext(NonCancellable) { releaseRead.await() }
+            return withContext(NonCancellable) {
+                if (releaseRead.await()) WakeDetection(entryId = null, phrase = "test", score = 1f, targetProfile = null) else null
+            }
         }
         override fun stop() { stopped = true }
         override fun close() { closed = true }

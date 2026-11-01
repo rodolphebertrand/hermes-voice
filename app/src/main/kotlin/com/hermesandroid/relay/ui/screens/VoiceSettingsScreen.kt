@@ -150,6 +150,7 @@ import com.hermesandroid.relay.viewmodel.VoiceViewModel
 import com.hermesandroid.relay.viewmodel.VoiceState
 import com.hermesandroid.relay.viewmodel.VoicePreviewUiState
 import com.hermesandroid.relay.wake.WakeWordPreferences
+import com.hermesandroid.relay.wake.WakeWordEntryUi
 import com.hermesandroid.relay.wake.WakeWordRuntimeState
 import com.hermesandroid.relay.wake.WakeWordTestPhase
 import com.hermesandroid.relay.wake.WakeWordTestState
@@ -605,12 +606,15 @@ fun VoiceSettingsScreen(
                             settingsViewModel.setAssistantWakeEnabled(false)
                         },
                     )
+                    val wakeWordEntries by
+                        settingsViewModel.wakeWordEntries.collectAsState()
                     WakeWordCard(
                         preferences = wakeWordPrefs,
                         runtimeState = wakeWordRuntimeState,
                         testState = wakeWordTestState,
                         installing = wakeWordInstallState.installing,
                         error = wakeWordPermissionError ?: wakeWordInstallState.error,
+                        wakeWordEntries = wakeWordEntries,
                         onEnable = requestWakeWordEnable,
                         onDisable = { settingsViewModel.setWakeWordEnabled(false) },
                         onSensitivityChange = settingsViewModel::setWakeWordSensitivity,
@@ -618,6 +622,7 @@ fun VoiceSettingsScreen(
                             settingsViewModel::setWakeWordConfirmationFrames,
                         onStartNewSessionChange =
                             settingsViewModel::setWakeWordStartNewSession,
+                        onEntryToggle = settingsViewModel::setWakeWordEntryEnabled,
                         onTest = settingsViewModel::testWakeWord,
                     )
                     BargeInCard(
@@ -3667,11 +3672,13 @@ private fun WakeWordCard(
     testState: WakeWordTestState,
     installing: Boolean,
     error: String?,
+    wakeWordEntries: List<WakeWordEntryUi>,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     onSensitivityChange: (Float) -> Unit,
     onConfirmationFramesChange: (Int) -> Unit,
     onStartNewSessionChange: (Boolean) -> Unit,
+    onEntryToggle: (String, Boolean) -> Unit,
     onTest: () -> Unit,
 ) {
     val abiSupported = Build.SUPPORTED_ABIS.any {
@@ -3747,6 +3754,47 @@ private fun WakeWordCard(
                 label = stringResource(R.string.wake_word_phrase),
                 value = preferences.phrase,
             )
+            if (wakeWordEntries.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.wake_word_phrases_title),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Text(
+                    text = stringResource(R.string.wake_word_phrases_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                wakeWordEntries.forEach { entry ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = entry.phrase,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.wake_word_profile_label,
+                                    entry.profile,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = entry.enabled,
+                            onCheckedChange = { onEntryToggle(entry.id, it) },
+                        )
+                    }
+                }
+            }
             ProviderRow(
                 label = stringResource(R.string.wake_word_status),
                 value = when (runtimeState) {

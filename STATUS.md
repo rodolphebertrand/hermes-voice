@@ -1,13 +1,18 @@
 # STATUS.md — Hermes Voice
 
 ## ÉTAT EN 5 LIGNES
-- **Date :** 2026-11-01 · **Commit :** 9be79c7 (base fork hermes-relay) + commit Phase 0a (`git log -1`)
-- **Ce qui compile :** rien — Phase 0a = audit/docs/scripts seulement ; `check.sh` ROUGE (attendu) : build échoue sur toolchain JDK 17.
-- **Ce qui bloque :** (1) JDK 17 absent (seul Temurin 21 dans `~/.gradle/jdks` ; foojay n'offre pas d'URL de téléchargement) ; (2) Android SDK : seul `platform-tools`, sans `platforms;android-37`/build-tools, `ANDROID_HOME` non défini.
-- **Appareil :** S21 FE (SM-S911W, Android 16 / API 36, One UI 8.0) connecté en ADB sans fil `192.168.3.4:5555` ; la cible S23 d'AGENTS.md n'est PAS connectée → à trancher avec Rodolphe.
-- **Prochaine tâche :** Rodolphe provisionne JDK 17 + SDK (NEXT_STEPS §1-2), puis 1er build vert, puis Phase 0b (greffe wake word openWakeWord ONNX).
+- **Date :** 2026-11-01 · **Commit :** `git log -1` (Phase 0b)
+- **Ce qui compile :** NON VÉRIFIÉ ici — contrainte absolue : aucun build Gradle sur ce serveur. Compile à valider sur PC .157 via scripts/build-windows.ps1. Vérifié hors build : signatures ONNX (lib onnx + onnxruntime, pipeline E2E OK, sinus 1 kHz → score 0.0007), accolades/parenthèses équilibrées, scan secrets = 0.
+- **Ce qui bloque :** rien côté code ; le build PC reste le jalon.
+- **Appareil :** S21 FE (192.168.3.5:5555, décision D7).
+- **Prochaine tâche :** build PC .157 → install S21 → test wake word réel écran verrouillé (Phase 0c).
 
 ---
-- 2026-11-01 : Phase 0a réalisée (audit base, licence MIT confirmée, endpoints 192.168.2.142 testés, ADB OK). Voir DECISIONS.md, docs/HERMES_API_SPEC.md, rapport 7 points.
-- `./scripts/check.sh` : ROUGE (attendu) — BUILD/TESTS non exécutés à cause de l'environnement ; STATUS daté ; SECRETS: 0. Log : `build/logs/check-*.log`.
-- Bug corrigé ce jour : `scripts/check.sh` sortait toujours 0 (FAIL dans un sous-shell de pipeline) — le code de sortie reflète maintenant le statut réel (vérifié : exit 1 sur ROUGE).
+- 2026-11-01 : **Phase 0b faite** — greffe wake word ONNX (openWakeWord, assets remplaçables, règle 14) :
+  - assets `app/src/main/assets/wakewords/` (5 .onnx + wakewords.json + NOTICE.md), table phrase→onnx→profil.
+  - `wake/` : WakeTrigger.kt (WakeDetection/WakeTrigger/OpenWakeWordAssetTrigger/SherpaWakeWordTrigger/WakeTriggerFactory), WakeWordAsset.kt, WakeWordAssetRegistry.kt, WakeWordFeatureWindow.kt (pipeline melspec→embedding→scorer via ORT).
+  - Service branché sur WakeTriggerFactory (assets primaire, sherpa fallback) + routage par profil (WakeWordProfileRouting.Specific).
+  - UI : liste des phrases + toggle par entrée dans WakeWordCard ; ViewModel : ensureWakeWordReady + entries.
+  - WIP 738746d1 (poussé sur origin mais écarté localement) repris et complété.
+- Note : branche `rebase-119` créée en parallèle (rebase sur upstream 1.19.0, 14:32-14:33) — Phase 0b committée sur `hermes-voice` comme demandé dans la mission ; à re-porter sur rebase-119 si elle devient la branche principale.
+- `./scripts/check.sh` : non exécuté (interdit sur ce serveur — pas de ./gradlew).

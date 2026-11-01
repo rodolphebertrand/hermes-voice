@@ -64,7 +64,9 @@ class WakeWordServiceHandoffTest {
             MutableStateFlow(WakeWordPreferences(enabled = true))
         val release = CompletableDeferred<Boolean>()
         coEvery { anyConstructed<WakeWordAudioRecord>().detect(any(), any()) } coAnswers {
-            withContext(NonCancellable) { release.await() }
+            withContext(NonCancellable) {
+                if (release.await()) WakeDetection(entryId = null, phrase = "test", score = 1f, targetProfile = null) else null
+            }
         }
         every { anyConstructed<WakeWordAudioRecord>().stop() } answers { }
         every { anyConstructed<WakeWordAudioRecord>().close() } answers { }
@@ -97,7 +99,9 @@ class WakeWordServiceHandoffTest {
             firstArg<() -> Unit>().invoke()
             val release = CompletableDeferred<Boolean>()
             readers.send(release)
-            withContext(NonCancellable) { release.await() }
+            withContext(NonCancellable) {
+                if (release.await()) WakeDetection(entryId = null, phrase = "test", score = 1f, targetProfile = null) else null
+            }
         }
         every { anyConstructed<WakeWordAudioRecord>().stop() } answers { }
         every { anyConstructed<WakeWordAudioRecord>().close() } answers { closed.trySend(Unit); Unit }

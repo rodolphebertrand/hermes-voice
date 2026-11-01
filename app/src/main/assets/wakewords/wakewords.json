@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "pipeline": {
+    "melspectrogram_model": "melspectrogram.onnx",
+    "embedding_model": "embedding_model.onnx",
+    "melspec_transform": {
+      "divide": 10.0,
+      "add": 2.0
+    },
+    "sample_rate": 16000,
+    "step_samples": 1280,
+    "melspec_lookbehind_samples": 480,
+    "frame_hop_samples": 160,
+    "mel_bins": 32,
+    "embedding_window_frames": 76,
+    "embedding_step_frames": 8,
+    "feature_dim": 96,
+    "wake_window_frames": 16
+  },
+  "wake_words": [
+    {
+      "id": "he_pixel",
+      "phrase": "H\u00e9 Pixel",
+      "model": "he_pixel.onnx",
+      "target_profile": "pi",
+      "threshold": 0.5,
+      "confirmation_frames": 3,
+      "enabled": true
+    },
+    {
+      "id": "dis_hermes",
+      "phrase": "Dis Herm\u00e8s",
+      "model": "dis_hermes.onnx",
+      "target_profile": "default",
+      "threshold": 0.5,
+      "confirmation_frames": 3,
+      "enabled": true
+    },
+    {
+      "id": "alfraide",
+      "phrase": "Alfraide, s'il vous pla\u00eet",
+      "model": "alfraide.onnx",
+      "target_profile": "alfred",
+      "threshold": 0.5,
+      "confirmation_frames": 3,
+      "enabled": true
+    }
+  ]
+}

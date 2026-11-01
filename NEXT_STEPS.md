@@ -1,7 +1,9 @@
 # NEXT_STEPS.md
 
-1. [ ] JDK 17 (Temurin) sur PATH ou dans `~/.gradle/jdks/` — le build est verrouillé `jvmToolchain(17)` (app/build.gradle.kts:323) ; seul JDK 21 présent ; foojay-resolver-convention 1.0.0 ne fournit pas d'URL de téléchargement (erreur Gradle observée le 2026-11-01).
-2. [ ] Android SDK : `platforms;android-37` (compileSdk 37), build-tools AGP 9.4.1, licences acceptées, `ANDROID_HOME` défini — actuellement seulement `/usr/lib/android-sdk/platform-tools`.
-3. [ ] Premier build vert : `./scripts/build.sh assembleSideloadDebug` puis `./scripts/check.sh` VERT (résumer dans le commit).
-4. [ ] Trancher l'appareil de référence : S21 FE connecté (192.168.3.4:5555) vs S23 cible d'AGENTS.md (non connecté) — décision Rodolphe.
-5. [ ] Phase 0b : greffe wake word openWakeWord (Apache-2.0) — point d'extension : paquet `app/.../relay/wake/` (`WakeWordDetectorFactory` + `WakeWordModelInstaller` + `assets/wakewords/`), voir DECISIONS.md D2.
+1. [x] Phase 0b code (wake word ONNX dynamique) — committé sur hermes-voice.
+2. [ ] **Build PC .157** : `git pull`, `.\scripts\build-windows.ps1` → APK sideload debug.
+3. [ ] Install sur S21 FE (192.168.3.5:5555) + premier lancement (copie assets → filesDir/wakewords).
+4. [ ] Phase 0c : test physique — wake word réel, écran verrouillé, logcat, métriques (batterie, température).
+5. [ ] Phase 1 : routage multi-profils E2E (he_pixel→pi, alfraide→alfred, dis_hermes→profil actif).
+6. [ ] Phase 2 : mode hors ligne.
+7. [ ] Si `rebase-119` devient la branche principale : re-porter Phase 0b dessus (conflits attendus sur wake/ refactorisé upstream).

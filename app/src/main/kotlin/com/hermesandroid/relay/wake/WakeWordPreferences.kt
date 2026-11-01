@@ -160,4 +160,15 @@ class WakeWordPreferencesRepository(
             prefs[KEY_PHRASE] = DEFAULT_WAKE_PHRASE
         }
     }
+
+    /**
+     * Toggle d'une wake word assets (`wake_word_asset_enabled_<id>`).
+     * null = non stocké (le champ `enabled` du JSON fait foi).
+     */
+    fun entryEnabled(id: String): Flow<Boolean?> =
+        dataStore.data.map { it[WakeWordAssetRegistry.entryKey(id)] }
+
+    suspend fun setEntryEnabled(id: String, enabled: Boolean) {
+        dataStore.edit { it[WakeWordAssetRegistry.entryKey(id)] = enabled }
+    }
 }
