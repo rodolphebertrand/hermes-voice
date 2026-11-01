@@ -13,6 +13,7 @@
   - `wake/` : WakeTrigger.kt (WakeDetection/WakeTrigger/OpenWakeWordAssetTrigger/SherpaWakeWordTrigger/WakeTriggerFactory), WakeWordAsset.kt, WakeWordAssetRegistry.kt, WakeWordFeatureWindow.kt (pipeline melspec→embedding→scorer via ORT).
   - Service branché sur WakeTriggerFactory (assets primaire, sherpa fallback) + routage par profil (WakeWordProfileRouting.Specific).
   - UI : liste des phrases + toggle par entrée dans WakeWordCard ; ViewModel : ensureWakeWordReady + entries.
+  - Fix bd951fb1 : fenêtre streaming alignée sur position absolue (sans cela, lectures AudioRecord en gros blocs → trames mel dupliquées / scores faussés).
   - WIP 738746d1 (poussé sur origin mais écarté localement) repris et complété.
 - Note : branche `rebase-119` créée en parallèle (rebase sur upstream 1.19.0, 14:32-14:33) — Phase 0b committée sur `hermes-voice` comme demandé dans la mission ; à re-porter sur rebase-119 si elle devient la branche principale.
 - `./scripts/check.sh` : non exécuté (interdit sur ce serveur — pas de ./gradlew).
