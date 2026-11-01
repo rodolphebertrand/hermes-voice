@@ -52,7 +52,11 @@ class OnnxWakeWordFeatureWindow(
     private val raw = ShortArray(rawCapacity)
     private var rawSize = 0
     private var rawOldest = 0
-    private var pendingSinceStep = 0
+    /** Échantillons PCM16 poussés au total (position absolue du plus récent). */
+    private var totalPushed = 0L
+    /** Étapes de melspectrogramme déjà calculées (fenêtre i se termine à
+     *  lookbehind + stepSamples + i * stepSamples). */
+    private var melspecsComputed = 0L
 
     private val melspecCapacity = 256
     private val melspec = Array(melspecCapacity) { FloatArray(melBins) }
@@ -73,16 +77,28 @@ class OnnxWakeWordFeatureWindow(
         for (index in 0 until count) {
             pushRaw(samples[index])
         }
-        pendingSinceStep += count
+        totalPushed += count
+        val windowLen = stepSamples + lookbehind
         var steps = 0
-        while (pendingSinceStep >= stepSamples) {
-            val input = lastRaw(stepSamples + lookbehind)
-            val frames = runMelspec(input)
+        while (true) {
+            // La fenêtre i se termine à la position absolue suivante.
+            val nextEnd = lookbehind + stepSamples + melspecsComputed * stepSamples
+            if (nextEnd > totalPushed) break
+            val back = (totalPushed - nextEnd).toInt()
+            val maxBack = rawSize - windowLen
+            if (maxBack < 0) break // Pas encore assez d'historique (démarrage).
+            if (back > maxBack) {
+                // La fenêtre de cette étape est sortie du buffer ring (ex. micro
+                // en pause) : on saute les étapes obsolètes au lieu de jeter.
+                melspecsComputed += ((back - maxBack) + stepSamples - 1) / stepSamples
+                continue
+            }
+            val frames = runMelspec(rawWindow(back, windowLen))
             for (frame in frames) appendMelspec(frame)
             if (melspecSize >= windowFrames) {
                 appendFeature(runEmbedding(lastMelspec(windowFrames)))
             }
-            pendingSinceStep -= stepSamples
+            melspecsComputed++
             steps++
         }
         return steps
@@ -117,11 +133,17 @@ class OnnxWakeWordFeatureWindow(
         rawSize++
     }
 
-    private fun lastRaw(n: Int): ShortArray {
-        require(rawSize >= n) { "Historique brut insuffisant ($rawSize < $n)" }
+    /**
+     * Les [n] échantillons se terminant à [back] positions avant le plus récent
+     * (back = 0 → les [n] derniers échantillons).
+     */
+    private fun rawWindow(back: Int, n: Int): ShortArray {
+        require(back in 0..rawSize - n) {
+            "Fenêtre brute indisponible (back=$back, n=$n, rawSize=$rawSize)"
+        }
         val out = ShortArray(n)
         for (i in 0 until n) {
-            out[i] = raw[(rawOldest + rawSize - n + i) % rawCapacity]
+            out[i] = raw[(rawOldest + rawSize - back - n + i) % rawCapacity]
         }
         return out
     }
