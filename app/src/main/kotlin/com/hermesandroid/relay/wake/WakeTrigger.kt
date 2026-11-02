@@ -2,9 +2,9 @@ package com.hermesandroid.relay.wake
 
 import android.content.Context
 import android.util.Log
-import com.microsoft.onnxruntime.OnnxTensor
-import com.microsoft.onnxruntime.OrtEnvironment
-import com.microsoft.onnxruntime.OrtSession
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import java.io.File
 
 /** Résultat d'une détection de wake word (quelle que soit l'implémentation). */

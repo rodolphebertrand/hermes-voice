@@ -1,8 +1,8 @@
 package com.hermesandroid.relay.wake
 
-import com.microsoft.onnxruntime.OnnxTensor
-import com.microsoft.onnxruntime.OrtEnvironment
-import com.microsoft.onnxruntime.OrtSession
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 
 /**
  * Fenêtre sur l'historique d'embeddings produit par la pipeline streaming.
