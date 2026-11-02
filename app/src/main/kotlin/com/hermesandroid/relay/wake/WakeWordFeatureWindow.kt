@@ -185,21 +185,25 @@ class OnnxWakeWordFeatureWindow(
         for (i in input.indices) melspecInput[i] = input[i].toInt().toFloat()
         val tensor = OnnxTensor.createTensor(
             environment,
-            melspecInput,
+            java.nio.FloatBuffer.wrap(melspecInput),
             longArrayOf(1L, input.size.toLong()),
         )
         try {
-            val output = melspectrogramSession
-                .run(mapOf<String, Any>(melspecInputName to tensor))
-                .first() as OnnxTensor
-            val total = output.shape.fold(1L) { a, b -> a * b }.toInt()
-            require(total % melBins == 0 && total > 0) {
-                "Sortie melspectrogram inattendue : ${output.shape.contentToString()}"
+            val result = melspectrogramSession.run(mapOf(melspecInputName to tensor))
+            try {
+                val output = result.get(0) as OnnxTensor
+                val buffer = output.floatBuffer
+                val total = buffer.remaining()
+                require(total % melBins == 0 && total > 0) {
+                    "Sortie melspectrogram inattendue : $total éléments"
+                }
+                val frames = total / melBins
+                val flat = FloatArray(total)
+                buffer.rewind(); buffer.get(flat)
+                return Array(frames) { f -> FloatArray(melBins) { b -> flat[f * melBins + b] } }
+            } finally {
+                result.close()
             }
-            val frames = total / melBins
-            val flat = FloatArray(total)
-            output.asFloatBuffer().let { buffer -> buffer.rewind(); buffer.get(flat) }
-            return Array(frames) { f -> FloatArray(melBins) { b -> flat[f * melBins + b] } }
         } finally {
             tensor.close()
         }
@@ -213,22 +217,26 @@ class OnnxWakeWordFeatureWindow(
         }
         val tensor = OnnxTensor.createTensor(
             environment,
-            flat,
+            java.nio.FloatBuffer.wrap(flat),
             longArrayOf(1L, windowFrames.toLong(), melBins.toLong(), 1L),
         )
         try {
-            val output = embeddingSession
-                .run(mapOf<String, Any>(embeddingInputName to tensor))
-                .first() as OnnxTensor
-            val size = output.shape.fold(1L) { a, b -> a * b }.toInt()
-            require(size >= featureDim) {
-                "Sortie embedding inattendue : ${output.shape.contentToString()}"
+            val result = embeddingSession.run(mapOf(embeddingInputName to tensor))
+            try {
+                val output = result.get(0) as OnnxTensor
+                val buffer = output.floatBuffer
+                val size = buffer.remaining()
+                require(size >= featureDim) {
+                    "Sortie embedding inattendue : $size éléments"
+                }
+                val all = FloatArray(size)
+                buffer.rewind(); buffer.get(all)
+                val embedding = FloatArray(featureDim)
+                System.arraycopy(all, size - featureDim, embedding, 0, featureDim)
+                return embedding
+            } finally {
+                result.close()
             }
-            val all = FloatArray(size)
-            output.asFloatBuffer().let { buffer -> buffer.rewind(); buffer.get(all) }
-            val embedding = FloatArray(featureDim)
-            System.arraycopy(all, size - featureDim, embedding, 0, featureDim)
-            return embedding
         } finally {
             tensor.close()
         }

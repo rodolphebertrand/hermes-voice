@@ -52,16 +52,22 @@ class OnnxWakeWordModelScorer(
     override fun score(wakeWindow: FloatArray): Float {
         val tensor = OnnxTensor.createTensor(
             environment,
-            wakeWindow,
+            java.nio.FloatBuffer.wrap(wakeWindow),
             longArrayOf(1L, wakeWindowFrames.toLong(), featureDim.toLong()),
         )
         try {
-            val output = session.run(mapOf<String, Any>(inputName to tensor)).first() as OnnxTensor
-            val total = output.shape.fold(1L) { a, b -> a * b }.toInt()
-            require(total > 0) { "Sortie wake word vide" }
-            val flat = FloatArray(total)
-            output.asFloatBuffer().let { buffer -> buffer.rewind(); buffer.get(flat) }
-            return flat[flat.size - 1]
+            val result = session.run(mapOf(inputName to tensor))
+            try {
+                val output = result.get(0) as OnnxTensor
+                val buffer = output.floatBuffer
+                val total = buffer.remaining()
+                require(total > 0) { "Sortie wake word vide" }
+                val flat = FloatArray(total)
+                buffer.rewind(); buffer.get(flat)
+                return flat[flat.size - 1]
+            } finally {
+                result.close()
+            }
         } finally {
             tensor.close()
         }
@@ -145,12 +151,10 @@ class OpenWakeWordAssetTrigger(
             }
             require(active.isNotEmpty()) { "Aucune wake word active dans wakewords.json" }
             val environment = OrtEnvironment.getEnvironment()
-            val melspectrogramSession = OrtSession.create(
-                environment,
+            val melspectrogramSession = environment.createSession(
                 File(dir, pipeline.melspectrogramModel).absolutePath,
             )
-            val embeddingSession = OrtSession.create(
-                environment,
+            val embeddingSession = environment.createSession(
                 File(dir, pipeline.embeddingModel).absolutePath,
             )
             val window = OnnxWakeWordFeatureWindow(pipeline, environment, melspectrogramSession, embeddingSession)
@@ -159,8 +163,7 @@ class OpenWakeWordAssetTrigger(
                     entry = entry,
                     scorer = OnnxWakeWordModelScorer(
                         environment = environment,
-                        session = OrtSession.create(
-                            environment,
+                        session = environment.createSession(
                             File(dir, entry.model).absolutePath,
                         ),
                         wakeWindowFrames = pipeline.wakeWindowFrames,
