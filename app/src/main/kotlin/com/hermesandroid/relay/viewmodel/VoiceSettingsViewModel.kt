@@ -91,6 +91,10 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
     private val bargeInRepo = BargeInPreferencesRepository(application)
     private val wakeWordRepo = WakeWordPreferencesRepository(application)
 
+    /** Wake words assets (wakewords.json) avec leur état effectif — pour l'UI. */
+    private val _wakeWordEntries = MutableStateFlow<List<WakeWordEntryUi>>(emptyList())
+    val wakeWordEntries: StateFlow<List<WakeWordEntryUi>> = _wakeWordEntries.asStateFlow()
+
     init {
         viewModelScope.launch {
             refreshWakeWordEntries()
@@ -131,10 +135,6 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
     private val _wakeWordInstallState = MutableStateFlow(WakeWordInstallUiState())
     val wakeWordInstallState: StateFlow<WakeWordInstallUiState> =
         _wakeWordInstallState.asStateFlow()
-
-    /** Wake words assets (wakewords.json) avec leur état effectif — pour l'UI. */
-    private val _wakeWordEntries = MutableStateFlow<List<WakeWordEntryUi>>(emptyList())
-    val wakeWordEntries: StateFlow<List<WakeWordEntryUi>> = _wakeWordEntries.asStateFlow()
 
     private suspend fun refreshWakeWordEntries() {
         _wakeWordEntries.value = WakeWordAssetRegistry.entries(getApplication())
@@ -222,6 +222,7 @@ class VoiceSettingsViewModel(application: Application) : AndroidViewModel(applic
                     runCatching {
                         wakeWordRepo.setEnabled(true)
                         WakeWordForegroundService.start(getApplication())
+                        refreshWakeWordEntries()
                     }.onSuccess {
                         _wakeWordInstallState.value = WakeWordInstallUiState()
                     }.onFailure { error ->
