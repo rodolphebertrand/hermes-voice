@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import com.hermesandroid.relay.wake.WakeWordRecognition
 import com.hermesandroid.relay.wake.WakeWordAudioRecord
 import com.hermesandroid.relay.wake.MicrophoneOwnershipCoordinator
-import com.hermesandroid.relay.wake.WakeWordModelInstaller
 import com.hermesandroid.relay.wake.WakeWordPreferences
 import com.hermesandroid.relay.wake.WakeWordPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
@@ -163,17 +162,14 @@ class HermesVoiceInteractionService : VoiceInteractionService() {
             setRuntimeState(AssistantWakeRuntimeState.Error)
             return
         }
-        val files = WakeWordModelInstaller(this).installedFiles()
-        if (files == null) {
-            setRuntimeState(AssistantWakeRuntimeState.Error)
-            return
-        }
         setRuntimeState(AssistantWakeRuntimeState.Starting)
+        // Phase 0b : plus de pré-check sherpa ici — WakeTriggerFactory choisit
+        // le primaire ONNX (assets) ou le fallback sherpa et échoue via onError.
         recognition.start(
             canListen = ::canListen,
-            createAudio = { WakeWordAudioRecord(files, preferences) },
+            createAudio = { WakeWordAudioRecord(this, preferences) },
             onListening = { setRuntimeState(AssistantWakeRuntimeState.Listening) },
-            onDetected = {
+            onDetected = { _ ->
                 setRuntimeState(AssistantWakeRuntimeState.AwaitingSession)
                 showAssistantSession()
             },
