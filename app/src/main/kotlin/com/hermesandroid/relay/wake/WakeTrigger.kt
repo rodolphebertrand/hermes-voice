@@ -103,6 +103,8 @@ class OpenWakeWordAssetTrigger(
     override val id: String = "openwakeword-assets"
     private val neededFrames: Int = confirmationFrames.coerceIn(1, 5)
     private val confirmations = IntArray(entries.size)
+    private val lastScores = FloatArray(entries.size)
+    private var acceptsSinceLog = 0
     private var closed = false
 
     override fun accept(samples: ShortArray, count: Int): WakeDetection? {
@@ -113,6 +115,7 @@ class OpenWakeWordAssetTrigger(
         for (index in entries.indices) {
             val entry = entries[index]
             val score = entry.scorer.score(wakeWindow)
+            lastScores[index] = score
             if (score >= entry.threshold) {
                 if (confirmations[index] >= neededFrames - 1) {
                     confirmations[index] = 0
@@ -128,6 +131,16 @@ class OpenWakeWordAssetTrigger(
                 confirmations[index] = 0
             }
         }
+        acceptsSinceLog++
+        if (acceptsSinceLog >= 60) {
+            acceptsSinceLog = 0
+            Log.i(
+                TAG,
+                "wake scores: " + entries.mapIndexed { i, e ->
+                    "${e.entry.id}=${"%.3f".format(lastScores[i])} (thr ${e.threshold})"
+                }.joinToString(", "),
+            )
+        }
         return null
     }
 
@@ -139,6 +152,8 @@ class OpenWakeWordAssetTrigger(
     }
 
     companion object {
+        private const val TAG = "WakeWordTrigger"
+
         suspend fun create(context: Context, preferences: WakeWordPreferences): OpenWakeWordAssetTrigger {
             val appContext = context.applicationContext
             val config = WakeWordAssetRegistry.load(appContext)
@@ -171,6 +186,12 @@ class OpenWakeWordAssetTrigger(
                     ),
                 )
             }
+            Log.i(
+                TAG,
+                "trigger ready (openWakeWord assets): " +
+                    entries.joinToString(", ") { "${it.entry.id} thr=${it.threshold}" } +
+                    ", wakeWindow=${pipeline.wakeWindowFrames} frames",
+            )
             return OpenWakeWordAssetTrigger(
                 entries = entries,
                 window = window,

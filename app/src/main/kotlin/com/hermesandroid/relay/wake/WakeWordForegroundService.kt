@@ -152,6 +152,7 @@ class WakeWordForegroundService : Service() {
             if (destroyed || expected != settingsGeneration) return@launch
             currentPreferences = prefs
             if (!prefs.enabled) {
+                Log.i(TAG, "settings disabled — stopping service")
                 setRuntimeState(WakeWordRuntimeState.Stopped)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -165,7 +166,18 @@ class WakeWordForegroundService : Service() {
         currentPreferences.enabled && WakeWordActivationCoordinator.pending.value == null
 
     private fun startRecognition(preferences: WakeWordPreferences) {
-        if (!canListen()) return
+        if (!canListen()) {
+            // Phase 0c : ce retour silencieux était invisible (aucun log) —
+            // le service restait alors bloqué en « Starting » sans piste.
+            Log.w(
+                TAG,
+                "startRecognition: canListen()=false — running=${runningInstance === this}, " +
+                    "destroyed=$destroyed, voiceSessionActive=$voiceSessionActive, " +
+                    "enabled=${currentPreferences.enabled}, " +
+                    "pending=${WakeWordActivationCoordinator.pending.value != null}",
+            )
+            return
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -180,7 +192,10 @@ class WakeWordForegroundService : Service() {
         recognition.start(
             canListen = ::canListen,
             createAudio = { WakeWordAudioRecord(this, preferences) },
-            onListening = { setRuntimeState(WakeWordRuntimeState.Listening) },
+            onListening = {
+                Log.i(TAG, "listening started (microphone capture open)")
+                setRuntimeState(WakeWordRuntimeState.Listening)
+            },
             onSamples = { samples, count ->
                 if (_testState.value.phase == WakeWordTestPhase.Listening) {
                     _testState.value = _testState.value.copy(inputLevel = wakeWordInputLevel(samples, count))
@@ -194,7 +209,10 @@ class WakeWordForegroundService : Service() {
                     onWakeDetected(preferences, detection)
                 }
             },
-            onBusy = { setRuntimeState(WakeWordRuntimeState.PausedForVoice) },
+            onBusy = {
+                Log.w(TAG, "microphone busy: lease/voice session held — wake paused")
+                setRuntimeState(WakeWordRuntimeState.PausedForVoice)
+            },
             onError = { fail(it.message ?: "Wake-word listener failed") },
         )
     }
@@ -226,6 +244,7 @@ class WakeWordForegroundService : Service() {
     }
 
     private fun pauseForVoice() {
+        Log.i(TAG, "paused: voice session active")
         settingsGeneration++
         settingsJob?.cancel()
         if (_testState.value.phase == WakeWordTestPhase.Listening) {

@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Hardware belongs to one recognition attempt, including partially built resources. */
@@ -44,6 +45,7 @@ internal class WakeWordAudioRecord(
             check(created.state == AudioRecord.STATE_INITIALIZED) { "Wake-word microphone failed to initialize" }
             created.startRecording()
         }
+        Log.i(TAG, "AudioRecord open: 16000Hz mono VOICE_RECOGNITION, buffer=${minBuffer * 2}B, trigger=${trigger.id}")
         onListening()
         val samples = ShortArray(1_600)
         while (!stopped.get()) {
@@ -72,5 +74,10 @@ internal class WakeWordAudioRecord(
         }
         runCatching { trigger?.close() }
         trigger = null
+        Log.i(TAG, "AudioRecord released")
+    }
+
+    private companion object {
+        const val TAG = "WakeWordAudio"
     }
 }
