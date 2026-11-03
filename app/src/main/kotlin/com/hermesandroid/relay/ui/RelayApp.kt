@@ -1561,8 +1561,78 @@ fun RelayApp() {
             }
             if (!appIsForeground) return@LaunchedEffect
 
+            // Phase 0b (fix) : la détection porte un profil cible (wakewords.json
+            // `target_profile` → WakeWordActivation.profileRouting). Ce champ
+            // n'était lu par personne : « Hé Pixel »/« Alfraide » restaient sur
+            // le profil actif, sans log ni bascule. Applique la bascule via le
+            // mécanisme existant du changement de profil (selectProfile +
+            // activateGatewayProfile, pattern supervised-pin), puis session.
+            val routing = activation.profileRouting
+            val targetName = routing.profileName?.trim()?.takeIf { it.isNotEmpty() }
+            val wantsSwitch = routing.mode ==
+                com.hermesandroid.relay.wake.WakeWordProfileRouteMode.Specific
+            val targetProfile = if (wantsSwitch && targetName != null) {
+                agentProfiles.firstOrNull { it.name.equals(targetName, ignoreCase = true) }
+            } else {
+                null
+            }
+            if (wantsSwitch) {
+                when {
+                    targetProfile == null ->
+                        android.util.Log.w(
+                            "WakeActivation",
+                            "bascule impossible : profil '$targetName' absent du roster — profil actif conservé",
+                        )
+                    selectedProfile?.name.equals(targetProfile.name, ignoreCase = true) == true ->
+                        android.util.Log.i(
+                            "WakeActivation",
+                            "profil '${targetProfile.name}' déjà sélectionné — pas de bascule",
+                        )
+                    else ->
+                        try {
+                            connectionViewModel.selectProfile(targetProfile)
+                            chatViewModel.activateGatewayProfile(targetProfile)
+                            android.util.Log.i(
+                                "WakeActivation",
+                                "bascule profil → ${targetProfile.name} (wake word '${activation.source}')",
+                            )
+                        } catch (t: Throwable) {
+                            android.util.Log.w(
+                                "WakeActivation",
+                                "bascule profil '${targetProfile.name}' échouée",
+                                t,
+                            )
+                        }
+                }
+            }
+
             if (activation.startNewSession) {
-                chatViewModel.createNewChat()
+                chatViewModel.createNewChat(
+                    onReady = { sessionId ->
+                        android.util.Log.i(
+                            "WakeActivation",
+                            "activation wake word : profil=${targetProfile?.name
+                                ?: selectedProfile?.name
+                                ?: "actif"}, session=${sessionId
+                                ?: "nouvelle (id attribuée à la 1re requête)"}",
+                        )
+                    },
+                    onFailure = {
+                        android.util.Log.w(
+                            "WakeActivation",
+                            "activation wake word : nouvelle session échouée (profil=${
+                                targetProfile?.name ?: "actif"
+                            })",
+                        )
+                    },
+                )
+            } else {
+                android.util.Log.i(
+                    "WakeActivation",
+                    "activation wake word : profil=${targetProfile?.name
+                        ?: selectedProfile?.name
+                        ?: "actif"}, session conservée",
+                )
             }
             navController.navigate(Screen.Chat.route(openAgentSheet = false)) {
                 launchSingleTop = true
