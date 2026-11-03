@@ -45,7 +45,7 @@ internal class WakeWordAudioRecord(
             check(created.state == AudioRecord.STATE_INITIALIZED) { "Wake-word microphone failed to initialize" }
             created.startRecording()
         }
-        Log.i(TAG, "AudioRecord open: 16000Hz mono VOICE_RECOGNITION, buffer=${minBuffer * 2}B, trigger=${trigger.id}")
+        Log.i(TAG, "AudioRecord open: 16000Hz mono VOICE_RECOGNITION, buffer=${minBuffer * 2}B, trigger=${createdTrigger.id}")
         onListening()
         val samples = ShortArray(1_600)
         while (!stopped.get()) {
