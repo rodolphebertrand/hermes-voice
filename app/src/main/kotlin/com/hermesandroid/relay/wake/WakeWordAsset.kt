@@ -72,6 +72,9 @@ data class WakeWordAssetConfig(
         require(pipeline.embeddingWindowFrames in 1..512)
         require(pipeline.wakeWindowFrames in 1..128)
         require(pipeline.stepSamples > 0)
+        require(pipeline.melspecTransform.divide > 0f) {
+            "melspec_transform.divide doit être > 0 (division des trames mel)"
+        }
         require(pipeline.melspectrogramModel.isNotBlank())
         require(pipeline.embeddingModel.isNotBlank())
     }

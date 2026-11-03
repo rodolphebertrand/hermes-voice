@@ -93,7 +93,7 @@ class OnnxWakeWordFeatureWindow(
                 melspecsComputed += ((back - maxBack) + stepSamples - 1) / stepSamples
                 continue
             }
-            val frames = runMelspec(rawWindow(back, windowLen))
+            val frames = runMelspec(rawWindow(back, windowLen)).map { transformMelspec(it) }
             for (frame in frames) appendMelspec(frame)
             if (melspecSize >= windowFrames) {
                 appendFeature(runEmbedding(lastMelspec(windowFrames)))
@@ -207,6 +207,24 @@ class OnnxWakeWordFeatureWindow(
         } finally {
             tensor.close()
         }
+    }
+
+    /**
+     * openWakeWord v0.5.1 (`utils.py::_get_melspectrogram`, transform par
+     * défaut `lambda x: x/10 + 2`) : appliquée à la SORTIE BRUTE du modèle
+     * ONNX melspectrogram, avant la fenêtre d'embedding.
+     *
+     * Bug Phase 0c (t_95a6e8cd) : sans cette étape, l'embedding model reçoit
+     * des valeurs hors distribution (log-mel bruts ≈ [24, 104] parole /
+     * -100 silence au lieu de [4.4, 12.4] / -8) et les scores des modèles
+     * wake restent cloués à ~0 (0.0066 max mesuré sur « Hermès ») — le wake
+     * word ne peut jamais franchir le seuil 0.5.
+     */
+    private fun transformMelspec(row: FloatArray): FloatArray {
+        val inv = if (divide != 0f) 1f / divide else 1f
+        val out = FloatArray(row.size)
+        for (i in row.indices) out[i] = row[i] * inv + add
+        return out
     }
 
     private fun runEmbedding(window: Array<FloatArray>): FloatArray {
